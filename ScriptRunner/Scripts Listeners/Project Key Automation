@@ -1,0 +1,111 @@
+/**
+Title: Clave de Proyecto Automática
+Description: Script para la generación automática de la clave de proyecto
+Author: Alejandro Romero Juarros
+Version:1.0
+*/
+
+// Definitions
+def issueKey = issue.key
+def scopeSplit
+def now = new Date()
+def year = now[Calendar.YEAR] as String
+//Obtener los ultimos dos digitos del año actual
+def yearSplit = println(year[2..3]);
+
+//Obtener Información de la issue de tipo Iniciativa
+def currentIssueInfo = get('/rest/api/2/issue/' + issueKey)
+    .header('Content-Type', 'application/json')
+    .asObject(Map)
+    
+def currentProjectKey = currentIssueInfo.body.fields.project.key
+
+//Condición de ejecución del Script
+//Debe ser una issue de tipo Initiative con clave PDP
+if(currentProjectKey == "PDP") return true
+else return false
+
+//Clave de la issue padre
+String parentKey = currentIssueInfo.body.fields.parent.key
+
+//GET para obtener toda la información acerca de la issue padre
+def resultParentIssue = get('/rest/api/2/issue/' + parentKey)
+	.header('Content-Type', 'application/json')
+    .asObject(Map)
+
+//Obtener campo scope de la issue padre
+def scopeParent2Name = resultParentIssue.body.fields.customfield_10046.value
+def scopeParent2Id = resultParentIssue.body.fields.customfield_10046.id
+
+// PUT REST API child
+def child2 = put("/rest/api/2/issue/" + issueKey)
+            .queryString("NotifyUsers", Boolean.FALSE)
+	        .header("Content-Type", "application/json")
+            .body([
+		        fields:[
+			        customfield_10046 : [
+                        id : scopeParent2Id as String]
+                        ]
+		        ]).asString()
+    
+//Switch para obtener las iniciales de la clave del proyecto en función del área
+//def scope = issue.fields.customfield_10046
+      switch(scopeParent2Name) {            
+         case "Technology": 
+            scopeSplit= "TECH"
+            break; 
+         case "IT Operations": 
+            scopeSplit= "OPER"
+            break; 
+         case "Finances - GRC Solutions": 
+            scopeSplit= "FHRG"
+            break;
+         case "Human Resources":
+            scopeSplit= "FHRG"
+            break;
+         case "Corporate & Industrial Solutions": 
+            scopeSplit= "CISD"
+            break; 
+         case "Territories": 
+            scopeSplit= "TERR"
+            break;
+         case "Smart Data & Process Automation": 
+            scopeSplit= "SDPA"
+            break;
+      }
+
+//Obtener ID del proyecto
+def keys = "${scopeSplit}${yearSplit}"
+def countedIdProject
+def currentProjectKeys = []
+def scopeKeys = []
+
+//Búsqueda de proyectos que coincidan con la misma clave generada
+idProject = get("/rest/api/3/project/search")
+    .header("Content-Type","application/json")
+    .queryString("query", keys)
+    .asObject(Map).body
+
+keys.starswith("${scopeSplit}${yearSplit}")
+
+idProject = idProject as String
+def countedIdProject = Integer.valueOf(idProject)
+countedIdProject ++
+
+//Formación de la project key, scope+año+ id del contador
+def projectKey = "${scopeSplit}${yearSplit}${countedIdProject}"
+
+//Cuerpo para la inclusión de la project key en la llamada PUT
+def body = [
+        "fields": [ 
+            "customfield_10583" : projectKey
+        ]
+]
+
+// PUT REST API actualizando el cuerpo de la issue con la clave de proyecto generada
+def updateProject = put("/rest/api/3/issue/" + issueKey)
+    .header("Content-Type", "application/json")
+    .body(body)
+    .asString()
+    
+
