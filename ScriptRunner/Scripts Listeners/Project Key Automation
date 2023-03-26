@@ -2,7 +2,7 @@
 Title: Clave de Proyecto Automática
 Description: Script para la generación automática de la clave de proyecto
 Author: Alejandro Romero Juarros
-Version:1.0
+Version:2.0 Búsqueda mejorada de claves de proyecto ya existentes
 */
 
 // Definitions
@@ -11,7 +11,7 @@ def scopeSplit
 def now = new Date()
 def year = now[Calendar.YEAR] as String
 //Obtener los ultimos dos digitos del año actual
-def yearSplit = println(year[2..3]);
+def yearSplit = year.substring(year.length() -2 , year.length())
 
 //Obtener Información de la issue de tipo Iniciativa
 def currentIssueInfo = get('/rest/api/2/issue/' + issueKey)
@@ -80,17 +80,25 @@ def countedIdProject
 def currentProjectKeys = []
 def scopeKeys = []
 
-//Búsqueda de proyectos que coincidan con la misma clave generada
+def idProject = "0"
+
 idProject = get("/rest/api/3/project/search")
     .header("Content-Type","application/json")
     .queryString("query", keys)
     .asObject(Map).body
-
-keys.starswith("${scopeSplit}${yearSplit}")
-
-idProject = idProject as String
-def countedIdProject = Integer.valueOf(idProject)
-countedIdProject ++
+    
+if(idProject){
+    currentProjectKeys = idProject.values.key
+    for(int projectIndex = 0; projectIndex < currentProjectKeys.size(); projectIndex ++){
+        def currentKey = currentProjectKeys.get(projectIndex) as String
+        if(currentKey.startsWith(keys)) {
+            scopeKeys.add(currentKey)
+        }
+    }
+    countedIdProject = scopeKeys.size() + 1
+}else{
+    countedIdProject = 1
+}
 
 //Formación de la project key, scope+año+ id del contador
 def projectKey = "${scopeSplit}${yearSplit}${countedIdProject}"
