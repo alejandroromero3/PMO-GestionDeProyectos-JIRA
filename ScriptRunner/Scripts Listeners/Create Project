@@ -2,7 +2,7 @@
 Title: Creación de Proyecto
 Description: Script para la creación de una issue de tipo Project para la posterior creación de proyectos
 Author: Alejandro Romero Juarros
-Version:1.0
+Version:2.0 Cambios en el body y en la asignacion de responsables
 */
 
 // Definición de Variables
@@ -65,10 +65,22 @@ def resultParentIssue2 = get('/rest/api/2/issue/' + parentKey)
 	.header('Content-Type', 'application/json')
     .asObject(Map)
 
+assignedPM = resultParentIssue.body.fields.customfield_10050
+projectName= resultParentIssue.body.fields.summary
+
+//Asignación de Project Leader y de Asignee dependiendo del responsable de la issue padre
+if(assignedPM){
+    projectleader = assignedPM
+}else {
+    projectleader = resultParentIssue2.body.fields.assignee
+}
+
 //Cuerpo para el put con todos los campos necesarios para rellenar la issue
 def body = [
     "fields": [
-        "customfield_10582": resultParentIssue.body.fields.summary, //Project Name
+        "customfield_10050": projectleader, //Assigned PM
+        "customfield_10585": projectleader, //Project Leader
+        "customfield_10582": projectName, //Project Name
         "customfield_10052": resultParentIssue.body.fields.customfield_10052, //Rejection Reasons
         "customfield_10053": resultParentIssue.body.fields.customfield_10053, // Strategic Objective
         "customfield_10092": resultParentIssue.body.fields.customfield_10092, //Confidential
