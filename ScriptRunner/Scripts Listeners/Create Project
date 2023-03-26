@@ -1,0 +1,83 @@
+/**
+Title: Creación de Proyecto
+Description: Script para la creación de una issue de tipo Project para la posterior creación de proyectos
+Author: Alejandro Romero Juarros
+Version:1.0
+*/
+
+// Definición de Variables
+def issueKey = issue.key
+def projectleader
+def asigneemail
+def id
+def assignedPM
+def assignee
+def projectName
+
+//Obtener Información de la issue de tipo Iniciativa
+def currentIssueInfo = get('/rest/api/2/issue/' + issueKey)
+    .header('Content-Type', 'application/json')
+    .asObject(Map)    
+
+//Clave de proyecto de issue padre
+String parentKey = currentIssueInfo.body.fields.parent.key
+
+//Información de la issue padre
+def resultParentIssue = get('/rest/api/2/issue/' + parentKey)
+	.header('Content-Type', 'application/json')
+    .asObject(Map)
+
+//Obtener campo Scope de la issue padre
+def scopeParent = resultParentIssue.body.fields.customfield_10046.value
+
+//Switch para obtener el id del responsable del area dependiendo del scope
+ switch(scopeParent) {            
+         case "Technology": 
+		  	id="611f8bdf41ff95006aacbdd5"
+            break; 
+         case "IT Operations": 
+		  	id="625e5f901046bb0071dd596e"
+            break; 
+         case "Finances - GRC Solutions": 
+		  	id="62e0ec102fe585febb3bd873"
+            break;
+         case "Human Resources":
+		  	id="62e0ec102fe585febb3bd873"
+            break;
+         case "Corporate & Industrial Solutions": 
+		  	id="62e0e9a1831f463d28e8c3c6"
+            break; 
+         case "Territories": 
+		  	id="619e541cebce4700671f5f0a"
+            break;
+         case "Smart Data & Process Automation": 
+		  	id="62e0f2e64913d0b7348935f9"
+            break;
+      }
+
+// PUT REST API body updated
+def updateProject = put("/rest/api/2/issue/" + parentKey + "/assignee" )
+    .header("Content-Type", "application/json")
+    .body( accountId: id).asString()
+    
+//Clonación de campos de Iniciativa a Proyecto
+def resultParentIssue2 = get('/rest/api/2/issue/' + parentKey)
+	.header('Content-Type', 'application/json')
+    .asObject(Map)
+
+//Cuerpo para el put con todos los campos necesarios para rellenar la issue
+def body = [
+    "fields": [
+        "customfield_10582": resultParentIssue.body.fields.summary, //Project Name
+        "customfield_10052": resultParentIssue.body.fields.customfield_10052, //Rejection Reasons
+        "customfield_10053": resultParentIssue.body.fields.customfield_10053, // Strategic Objective
+        "customfield_10092": resultParentIssue.body.fields.customfield_10092, //Confidential
+        "description": resultParentIssue.body.fields.description, //Description
+    ]
+]
+
+//PUT REST API para la actualizacion de campos en la issue Project
+def child = put("/rest/api/2/issue/" + issueKey)
+    .header("Content-Type", "application/json")
+    .body(body)
+    .asString()
