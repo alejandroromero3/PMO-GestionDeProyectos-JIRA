@@ -64,6 +64,28 @@ def areamanagerbody= resultParentIssue.body.fields.customfield_11104?.accountId
 def subareareamanagerbody = resultParentIssue.body.fields.customfield_11202?.accountId
 def projectTeambody = projectTeam?.accountId
 
+
+//ROLES
+def projleadPeople = put("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"/role/10028")
+    .header("Content-Type", "application/json;odata=verbose")
+    .header("Accept", "application/json;odata=verbose")
+    .body("categorisedActors": ["atlassian-user-role-actor": [projectLeaderbody] ])
+    .asString()
+
+
+def projArea = put("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"/role/10029")
+    .header("Content-Type", "application/json;odata=verbose")
+    .header("Accept", "application/json;odata=verbose")
+    .body("categorisedActors": ["atlassian-user-role-actor": [areamanagerbody]])
+    .asString()
+
+
+def projSubArea = put("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"/role/10037")
+    .header("Content-Type", "application/json;odata=verbose")
+    .header("Accept", "application/json;odata=verbose")
+    .body("categorisedActors": ["atlassian-user-role-actor": [subareareamanagerbody]])
+    .asString()
+
 def body2 = [
         "name": "${projectName}", 
         "key": "${projectKey}",
