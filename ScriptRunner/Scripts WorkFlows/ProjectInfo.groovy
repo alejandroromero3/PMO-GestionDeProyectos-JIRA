@@ -1,8 +1,11 @@
 /**
 Title: ProjectInfo
-Description: Script para rellenar los campos del project-info (Hoja Resumen) de cada proyecto
+Description: Script para rellenar los campos del project-info (Hoja Resumen) de cada proyecto.
+Añadida funcionalidad para incluir y sincronizar miembros de ProjectTeam, dependiendo si son internos o externos
+adquieran un rol de proyecto u otro. Condición y comparación con grupos de Azure/Directorio Activo 
+para asegurar visibilidad y permisos en JIRA
 Author: Alejandro Romero Juarros
-Version:2.0 Inclusión Project Team con condición de rol dependiendo de si es externo o interno
+Version:3.0 Mejora descripción
 */
 
 // Definitions
