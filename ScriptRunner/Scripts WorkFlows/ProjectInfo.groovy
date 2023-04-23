@@ -2,7 +2,7 @@
 Title: ProjectInfo
 Description: Script para rellenar los campos del project-info (Hoja Resumen) de cada proyecto
 Author: Alejandro Romero Juarros
-Version:1.0 
+Version:2.0 Inclusión Project Team con condición de rol dependiendo de si es externo o interno
 */
 
 // Definitions
@@ -86,7 +86,37 @@ def projSubArea = put("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"
     .body("categorisedActors": ["atlassian-user-role-actor": [subareareamanagerbody]])
     .asString()
 
-def body2 = [
+if(projectTeambody){
+    
+    for(int i = 0; i < projectTeambody.size(); i++){
+    
+        def gruposProjTeam = get('https://antolin.atlassian.net/rest/api/3/user/groups?accountId='+ projectTeambody[i])
+        .header("Accept", "application/json;odata=verbose")
+        .asObject(List)
+        
+        if (gruposProjTeam.body.groupId.find{"7444b896-de52-497b-8c35-b704d51f1585"}){ //GroupId 
+        
+            def projteamPeople = post("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"/role/10030") //Project Team para Visualización Completa 
+            .header("Content-Type", "application/json;odata=verbose")
+            .header("Accept", "application/json;odata=verbose")
+            .body("user": [projectTeambody[i]])
+            .asString()
+            
+            
+        }else if (gruposProjTeam.body.groupId.find{"5fcaa7d9-96b3-4bc7-b626-41c0f6ba57f8"}){ //GroupId
+            
+            def projteamPeople = post("https://antolin.atlassian.net/rest/api/2/project/"+keyP+"/role/10035") //External Users para Visualización Restringida
+            .header("Content-Type", "application/json;odata=verbose")
+            .header("Accept", "application/json;odata=verbose")
+            .body("user": [projectTeambody[i]])
+        .asString()
+        
+        }
+        
+    }
+    
+    
+    def body2 = [
         "name": "${projectName}", 
         "key": "${projectKey}",
         "area": "${areabody}", 
@@ -95,9 +125,27 @@ def body2 = [
         "project team": "${projectTeambody}",
         "project leader": "${projectLeaderbody}",
         "area manager": "${areamanagerbody}"
-]
-
-def PowerAutomate = post("https://prod-146.westeurope.logic.azure.com:443/workflows/c946dadcd15d478981d76250ea5ac580/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=4muPj7VdencMPGidOAs5pk8TWM9WfkuhTujPquL9Ouc")
+    ]
+    
+    def PowerAutomate = post("https://prod-146.westeurope.logic.azure.com:443/workflows/c946dadcd15d478981d76250ea5ac580/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=4muPj7VdencMPGidOAs5pk8TWM9WfkuhTujPquL9Ouc")
     .header("Content-Type", "application/json")
     .body(body2)
     .asString()
+    
+}else{
+    def body3 = [
+        "name": "${projectName}", 
+        "key": "${projectKey}",
+        "area": "${areabody}", 
+        "confidential": "${confidentialbody}", 
+        "documentation": "${documentationbody}",
+        "project team": "${projectTeambody}",
+        "project leader": "${projectLeaderbody}",
+        "area manager": "${areamanagerbody}"
+    ]
+    
+    def PowerAutomate = post("https://prod-146.westeurope.logic.azure.com:443/workflows/c946dadcd15d478981d76250ea5ac580/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=4muPj7VdencMPGidOAs5pk8TWM9WfkuhTujPquL9Ouc")
+    .header("Content-Type", "application/json")
+    .body(body3)
+    .asString()
+}
