@@ -1,0 +1,216 @@
+/**
+Title: Create Project and Key Automation
+Description: Script que une los dos anteriores: Create Project y Key Automation, para tener todo unido en un mismo script
+y evitar el delay con las llamadas REST API. Mejora considerable en la búsqueda de la key en proyecto e inclusión de paginación
+debido al límite total. De esta forma se solventa el problema causado con proyectos con la misma clave y errores de clonado.
+Version:1.0
+*/
+
+// Variables
+def issueKey = issue.key
+def projectleader
+def asigneemail
+def id
+def assignedPM
+def assignee
+def projectName
+def scopeSplit
+def now = new Date()
+def year = now[Calendar.YEAR] as String
+def yearSplit = year.substring(year.length() -2 , year.length())
+
+//Get information about the issue
+def currentIssueInfo = get('/rest/api/2/issue/' + issueKey)
+    .header('Content-Type', 'application/json')
+    .asObject(Map)    
+
+// Key of the parent request
+String parentKey = currentIssueInfo.body.fields.parent.key
+
+// Full info of parent request
+def resultParentIssue = get('/rest/api/2/issue/' + parentKey)
+    .header('Content-Type', 'application/json')
+    .asObject(Map)
+
+def assigneeid = resultParentIssue.body.fields.assignee.accountId
+
+// Get scope from parent for first switch
+def scopeParent = resultParentIssue.body.fields.customfield_10046.value
+def scopeChild = resultParentIssue.body.fields.customfield_10046.child.id
+
+// Get scope from parent for the second switch
+def scopeParentTwo = resultParentIssue.body.fields.customfield_10046.value
+def scopeParentIdTwo = resultParentIssue.body.fields.customfield_10046.id
+
+//Get Scope
+def scope = resultParentIssue.body.fields.customfield_10046.value
+
+// Firts switch to set the iniciative assignee based on the scope
+ switch(scope) {            
+         case "Technology": 
+        //    asigneemail="ivan.perez@grupoantolin.com"
+              id="611f8bdf41ff95006aacbdd5"
+            break; 
+         case "IT Operations": 
+        //    asigneemail="catalina.garcia@grupoantolin.com"
+              id="625e5f901046bb0071dd596e"
+            break; 
+         case "Finances - GRC Solutions": 
+        //    asigneemail="maria.garcia2@grupoantolin.com"
+              id="62e0ec102fe585febb3bd873"
+            break;
+         case "Human Resources":
+        //    asigneemail="maria.garcia2@grupoantolin.com"
+              id="62e0ec102fe585febb3bd873"
+            break;
+         case "Industrial Solutions": 
+        //    asigneemail="joser.gutierrez@grupoantolin.com"
+              id="62e0e9a1831f463d28e8c3c6"
+            break; 
+         case "Territories": 
+        //    asigneemail="miguel.izquierdo@grupoantolin.com"
+              id="619e541cebce4700671f5f0a"
+            break;
+         case "Smart Data & Process Automation": 
+        //    asigneemail="cesar.arribas@grupoantolin.com"
+              id="62e0f2e64913d0b7348935f9"
+            break;
+      }
+
+// Second switch to set the future new project key based on the iniciative scope
+switch(scopeParentTwo) {            
+         case "Technology": 
+            scopeSplit= "TECH"
+            break; 
+         case "IT Operations": 
+            scopeSplit= "OPER"
+            break; 
+         case "Finances - GRC Solutions": 
+            scopeSplit= "FHRG"
+            break;
+         case "Human Resources":
+            scopeSplit= "FHRG"
+            break;
+         case "Industrial Solutions": 
+            scopeSplit= "CISD"
+            break; 
+         case "Territories": 
+            scopeSplit= "TERR"
+            break;
+         case "Smart Data & Process Automation": 
+            scopeSplit= "SDPA"
+            break;
+      }
+
+// Get previous created projects with the same starter key
+def keys = "${scopeSplit}${yearSplit}"
+
+// Logic to get the next index of current project key
+def countedIdProject
+def cfCurrentProjectKeyValues = []
+def cfProjectKeyQuery = "cf[10583] is not EMPTY and issuetype = Project"
+def initialProjectKeysResponse 
+initialProjectKeysResponse = get("/rest/api/2/search")
+    .header("Content-Type","application/json")
+    .queryString("jql", cfProjectKeyQuery)
+    .asJson().body
+
+def totalResults = initialProjectKeysResponse.object.total
+def totalPages = (totalResults / 50) as Integer
+def currentPage
+def startAtParameter
+def projectKeysResponse
+
+currentPage = 0
+startAtParameter = 0
+
+if(initialProjectKeysResponse){
+for(int i = 0; i <= totalPages; i++){
+    projectKeysResponse = get("/rest/api/2/search")
+    .header("Content-Type","application/json")
+    .queryString("jql", cfProjectKeyQuery)
+    .queryString("startAt", startAtParameter)
+    .queryString("maxResults", 50)
+    .asJson().body
+    if(i < totalPages){
+        for(int issueIndex = 0; issueIndex <  50; issueIndex ++){
+        def currentKey = projectKeysResponse.object.issues[issueIndex].fields.customfield_10583 as String
+        // logger.warn("Iteración nº: " + issueIndex + " Clave de proyecto: " + currentKey)
+            if(currentKey.startsWith(keys)) {
+                cfCurrentProjectKeyValues.add(currentKey)
+            }
+        }
+    }else{
+        for(int issueIndex = 0; issueIndex < (totalResults - (50 * currentPage)); issueIndex ++){
+        def currentKey = projectKeysResponse.object.issues[issueIndex].fields.customfield_10583 as String
+        // logger.warn("Iteración nº: " + issueIndex + " Clave de proyecto: " + currentKey)
+            if(currentKey.startsWith(keys)) {
+                cfCurrentProjectKeyValues.add(currentKey)
+            }
+        }
+    }
+        currentPage++;
+        startAtParameter+=50
+    }
+
+    countedIdProject = cfCurrentProjectKeyValues.size() + 1
+}else{
+    countedIdProject = 1
+}
+
+// Form the new project key with the last index
+def cfCurrentProjectKeyIndex = []
+
+for(int i = 0; i < cfCurrentProjectKeyValues.size(); i++){
+    cfCurrentProjectKeyIndex.add((cfCurrentProjectKeyValues.get(i).replaceAll("${scopeSplit}${yearSplit}","")) as int)
+}
+
+cfCurrentProjectKeyIndex = cfCurrentProjectKeyIndex.sort()
+def currentArrayMaxCount = (cfCurrentProjectKeyIndex.last() + 1 ) as String
+
+def projectKey = "${scopeSplit}${yearSplit}${currentArrayMaxCount}"
+assignedPM = resultParentIssue.body.fields.customfield_10050
+projectName= resultParentIssue.body.fields.summary
+projectName = projectName.replaceAll('[^0-9a-zA-Z ]+', "")
+
+if(assignedPM){
+    projectleader = assignedPM
+}else {
+    projectleader = resultParentIssue.body.fields.assignee
+}
+
+def body = [
+    "fields": [
+        "customfield_10050": projectleader, // Assigned PM
+        "customfield_10585": projectleader, // Project Leader
+        "customfield_10582": projectName, // Project Name
+        "customfield_10583": projectKey, // Project Key
+        "customfield_10053": resultParentIssue.body.fields.customfield_10053, // Strategic Objective
+        "customfield_10092": resultParentIssue.body.fields.customfield_10092, // Confidential
+        "customfield_11152": resultParentIssue.body.fields.customfield_11152, // Customer Date
+        "customfield_11081": resultParentIssue.body.fields.customfield_11081, // Documentation Needs
+        "customfield_10078": resultParentIssue.body.fields.customfield_10078, // Pople
+        "description": resultParentIssue.body.fields.description, // Description
+        "customfield_11202": resultParentIssue.body.fields.assignee, // Sub Area Manager 
+        "customfield_11104": [ // Area Manager
+                            accountId: id
+                            ],
+        "customfield_11162": resultParentIssue.body.fields.customfield_11162, //Requester Area
+        "customfield_10046" : [ // Scope
+                        id : resultParentIssue.body.fields.customfield_10046.id as String,
+                        child:[
+                            id: scopeChild
+                        ]
+        ]
+    ]
+]
+
+def updateProjectIssue = put("/rest/api/2/issue/" + issueKey)
+    .header("Content-Type", "application/json")
+    .body(body)
+    .asString()
+
+// Assign assignee to the parent issue (initiative)
+def updateAssignee = put("/rest/api/2/issue/" + issueKey + "/assignee" )
+    .header("Content-Type", "application/json")
+    .body(accountId: assigneeid).asString()
